@@ -1,0 +1,14 @@
+{
+  "name": "blocks-battery-passport",
+  "version": "1.0.0",
+  "description": "Battery Passport on ADI Chain L2",
+  "scripts": {
+    "compile": "hardhat compile"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}

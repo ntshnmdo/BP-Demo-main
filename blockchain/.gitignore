@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Hardhat artifacts and cache
+artifacts/
+cache/
+
+# Environments and Secrets
+.env
+.env.local
+.env.*.local
+
+# Python backend files
+backend/__pycache__/
+backend/*.db
+backend/*.sqlite
+
+# Next.js build output (just in case)
+frontend/.next/
+frontend/out/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+*.log

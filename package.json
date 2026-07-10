@@ -1,0 +1,30 @@
+{
+  "name": "battery-passport",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "db:migrate": "turbo run db:migrate --filter=backend",
+    "db:seed": "turbo run db:seed --filter=backend",
+    "db:studio": "turbo run db:studio --filter=backend"
+  },
+  "prisma": {
+  "seed": "ts-node apps/backend/prisma/seed.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

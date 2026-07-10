@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANUFACTURER
+  MATERIAL_SUPPLIER
+  TESTING_LABORATORY
+  SUSTAINABILITY_TEAM
+  PUBLIC_USER
+}
+
+enum PassportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+enum BatteryType {
+  EV
+  INDUSTRIAL
+  STATIONARY
+  OTHER
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PUBLISHED
+  DOCUMENT_UPLOADED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(MANUFACTURER)
+  organization String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  passports  BatteryPassport[] @relation("CreatedByUser")
+  approvals  BatteryPassport[] @relation("ApprovedByUser")
+  auditLogs  AuditLog[]
+}
+
+model BatteryPassport {
+  id         String         @id @default(cuid())
+  passportId String         @unique
+  status     PassportStatus @default(DRAFT)
+
+  serialNumber    String    @unique
+  qrCode          String?
+  model           String
+  batteryType     BatteryType
+  chemistry       String
+  productionDate  DateTime
+  intendedUse     String?
+  capacity        Float?
+  nominalVoltage  Float?
+  countryOfOrigin String?
+  stateOfHealth   Float?    @default(100)
+  stateOfCharge   Float?    @default(100)
+
+  materialComposition Json?
+  carbonFootprint     Float?
+  ghgEmissions        Float?
+  manufacturingSiteEmissions Float?
+
+  recycledContent  Float?
+  recyclingInfo    String?
+  circularityScore Int?
+
+  blockchainHash String?
+  blockchainTx   String?
+
+  warrantyStart DateTime?
+  warrantyEnd   DateTime?
+  warrantyKm    Int?
+
+  lifecycleEvents Json?
+
+  createdById  String
+  createdBy    User    @relation("CreatedByUser", fields: [createdById], references: [id])
+  approvedById String?
+  approvedBy   User?   @relation("ApprovedByUser", fields: [approvedById], references: [id])
+
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  publishedAt     DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  certificates Certificate[]
+  documents    Document[]
+  auditLogs    AuditLog[]
+}
+
+model Certificate {
+  id         String          @id @default(cuid())
+  passportId String
+  passport   BatteryPassport @relation(fields: [passportId], references: [id], onDelete: Cascade)
+  type       String
+  issuer     String
+  issuedDate DateTime
+  expiryDate DateTime?
+  status     String          @default("COMPLIANT")
+  fileUrl    String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model Document {
+  id         String          @id @default(cuid())
+  passportId String
+  passport   BatteryPassport @relation(fields: [passportId], references: [id], onDelete: Cascade)
+  name       String
+  type       String
+  fileUrl    String
+  fileSize   Int?
+  mimeType   String?
+  uploadedAt DateTime        @default(now())
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  passportId String
+  passport   BatteryPassport @relation(fields: [passportId], references: [id], onDelete: Cascade)
+  action     AuditAction
+  actorId    String
+  actor      User            @relation(fields: [actorId], references: [id])
+  details    String?
+  metadata   Json?
+  createdAt  DateTime        @default(now())
+}
