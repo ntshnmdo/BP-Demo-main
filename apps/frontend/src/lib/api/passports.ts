@@ -447,8 +447,21 @@ export async function rejectPassport(id: string, reason: string): Promise<Batter
   return data;
 }
 
-export async function publishPassport(id: string): Promise<BatteryPassport> {
-  const { data } = await apiClient.post<BatteryPassport>(`/api/passports/${id}/publish`);
+export interface PublishWithBlockchainRequest {
+  walletAddress?: string;
+  blockchainTxHash?: string;
+  isBlockchainPublish?: boolean;
+}
+
+export async function publishPassport(
+  id: string,
+  blockchainData?: PublishWithBlockchainRequest
+): Promise<BatteryPassport> {
+  const payload = blockchainData || {};
+  const { data } = await apiClient.post<BatteryPassport>(
+    `/api/passports/${id}/publish`,
+    payload
+  );
   return data;
 }
 

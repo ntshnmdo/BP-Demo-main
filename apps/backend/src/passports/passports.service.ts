@@ -344,7 +344,7 @@ export class PassportsService {
     return updated;
   }
 
-  async publish(id: string, adminId: string) {
+  async publish(id: string, adminId: string, blockchainData?: any) {
     const passport = await this.prisma.batteryPassport.findFirst({
       where: { OR: [{ id }, { passportId: id }] },
     });
@@ -356,19 +356,36 @@ export class PassportsService {
       );
     }
 
+    // Prepare update data
+    const updateData: any = {
+      status: 'PUBLISHED',
+      publishedAt: new Date(),
+    };
+
+    // If blockchain transaction data is provided, store it
+    if (blockchainData?.blockchainTxHash) {
+      updateData.blockchainTx = blockchainData.blockchainTxHash;
+    }
+
+    if (blockchainData?.walletAddress) {
+      updateData.publishedByWallet = blockchainData.walletAddress;
+    }
+
     const updated = await this.prisma.batteryPassport.update({
       where: { id: passport.id },
-      data: {
-        status: 'PUBLISHED',
-        publishedAt: new Date(),
-      },
+      data: updateData,
     });
+
+    // Create audit log with blockchain info
+    const auditDetails = blockchainData?.blockchainTxHash
+      ? `Passport published to public registry with blockchain transaction: ${blockchainData.blockchainTxHash}`
+      : `Passport published to public registry`;
 
     await this.auditService.createLog(
       passport.id,
       'PUBLISHED',
       adminId,
-      `Passport published to public registry`,
+      auditDetails,
     );
 
     return updated;

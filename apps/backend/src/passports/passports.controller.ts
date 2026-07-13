@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { PassportsService } from './passports.service';
 import { CreatePassportDto } from './dto/create-passport.dto';
 import { UpdatePassportDto } from './dto/update-passport.dto';
+import { PublishWithBlockchainDto } from './dto/publish-with-blockchain.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -96,8 +97,12 @@ export class PassportsController {
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
-  publish(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.passportsService.publish(id, user.id);
+  publish(
+    @Param('id') id: string,
+    @Body() dto: PublishWithBlockchainDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.passportsService.publish(id, user.id, dto);
   }
 
   @Get(':id/audit-logs')

@@ -39,6 +39,7 @@ import {
 import Link from 'next/link';
 import { verifyPassport } from '@/lib/api/passports';
 import QRCode from 'react-qr-code';
+import { PublishWithBlockchainDialog } from '@/components/web3/PublishWithBlockchainDialog';
 
 export default function PassportDetailPage() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function PassportDetailPage() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'carbon' | 'compliance' | 'circularity' | 'audit'>('overview');
   
+  const [showBlockchainPublish, setShowBlockchainPublish] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<any>(null);
 
@@ -235,12 +237,12 @@ export default function PassportDetailPage() {
 
           {showPublish && (
             <button
-              onClick={() => handleAction('publish')}
+              onClick={() => setShowBlockchainPublish(true)}
               disabled={publishMutation.isPending}
               className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-1.5"
             >
               <Globe className="w-4 h-4" />
-              Publish Passport
+              Publish on Blockchain
             </button>
           )}
 
@@ -661,6 +663,19 @@ export default function PassportDetailPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Blockchain Publish Dialog */}
+      {showBlockchainPublish && passport && (
+        <PublishWithBlockchainDialog
+          passport={passport}
+          onSuccess={(updatedPassport) => {
+            setShowBlockchainPublish(false);
+            // Refresh the page or update the passport data
+            router.refresh();
+          }}
+          onCancel={() => setShowBlockchainPublish(false)}
+        />
       )}
 
       {/* QR Code Modal Overlay */}
