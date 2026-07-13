@@ -68,9 +68,44 @@ MAX_FILE_SIZE_MB=10
 # ─── Blockchain (MVP mock mode) ──────────────────────────────
 BLOCKCHAIN_PROVIDER="mock"
 NODE_ENV="development"
+
+# ─── Blockchain Publishing (Optional) ─────────────────────────
+# Set these to enable real blockchain publishing with MetaMask
+# NEXT_PUBLIC_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY"
+# NEXT_PUBLIC_CONTRACT_ADDRESS="0x..."
 ```
 
 > ⚠️ **Important:** Change `DATABASE_URL` username/password to match your local PostgreSQL setup if they differ from the defaults.
+
+---
+
+## 🔗 Step 3b (Optional) — Configure Blockchain Publishing
+
+To enable real blockchain transactions with MetaMask, you'll need to set up smart contract configuration:
+
+**1. Deploy your Battery Passport smart contract** (see [METAMASK_INTEGRATION.md](METAMASK_INTEGRATION.md) for contract details)
+
+**2. Get an Ethereum RPC endpoint** (free options):
+   - [Alchemy](https://www.alchemy.com/) - free tier available
+   - [Infura](https://infura.io/) - free tier available
+   - [QuickNode](https://www.quicknode.com/) - free tier available
+
+**3. Add to your `.env.local` (frontend)**:
+```env
+NEXT_PUBLIC_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+NEXT_PUBLIC_CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890
+```
+
+**4. Optional: Add to your `.env` (backend for server-side signing)**:
+```env
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890
+ANCHOR_PRIVATE_KEY=0x... # Backend wallet for automated anchoring
+ANCHOR_OWNER_ADDRESS=0x... # Default recipient for anchored passports
+STORAGE_MODE=local # or 'ipfs' for IPFS storage
+```
+
+> 📖 For complete blockchain setup details, see [METAMASK_INTEGRATION.md](METAMASK_INTEGRATION.md)
 
 ---
 

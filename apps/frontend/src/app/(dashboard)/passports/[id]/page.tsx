@@ -156,7 +156,7 @@ export default function PassportDetailPage() {
       } else if (action === 'approve') {
         await approveMutation.mutateAsync(id);
       } else if (action === 'publish') {
-        await publishMutation.mutateAsync(id);
+        await publishMutation.mutateAsync({ id });
       }
     } catch (err) {
       console.error(err);

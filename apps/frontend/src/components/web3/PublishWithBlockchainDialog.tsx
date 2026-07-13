@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { useMetaMask } from '@/lib/web3/useMetaMask';
 import { BlockchainTransactionService } from '@/lib/web3/blockchainTransactionService';
 import { publishPassport, type BatteryPassport } from '@/lib/api/passports';
-import { AlertCircle, CheckCircle, Loader, Wallet, ArrowRight } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader, Wallet, ArrowRight, FlaskConical } from 'lucide-react';
+
+/** True when both env vars needed for real on-chain txs are present */
+const isBlockchainConfigured = (): boolean => {
+  const rpc = process.env.NEXT_PUBLIC_RPC_URL;
+  const addr = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+  return !!(rpc && rpc.length > 0 && addr && addr.length > 0 && addr !== '0x');
+};
 
 interface PublishWithBlockchainDialogProps {
   passport: BatteryPassport;
@@ -22,6 +29,7 @@ export function PublishWithBlockchainDialog({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const blockchainReady = isBlockchainConfigured();
 
   const handleConnectWallet = async () => {
     setError(null);
@@ -94,6 +102,158 @@ export function PublishWithBlockchainDialog({
       setIsProcessing(false);
     }
   };
+
+  /** Simulation mode — publish without a real on-chain transaction */
+  const handleSimulatedPublish = async () => {
+    setIsProcessing(true);
+    setError(null);
+    setStep('submitting');
+
+    try {
+      const simulatedTx = `0xSIM_${Date.now().toString(16).toUpperCase()}_${Math.random().toString(16).slice(2, 10).toUpperCase()}`;
+      setTxHash(simulatedTx);
+
+      // Small delay to simulate async work
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      const updatedPassport = await publishPassport(passport.id, {
+        walletAddress: '0x0000000000000000000000000000000000000000',
+        blockchainTxHash: simulatedTx,
+        isBlockchainPublish: true,
+      });
+
+      setStep('success');
+      setIsProcessing(false);
+
+      if (onSuccess) {
+        setTimeout(() => onSuccess(updatedPassport), 2000);
+      }
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to publish passport';
+      setError(errorMessage);
+      setStep('error');
+      setIsProcessing(false);
+    }
+  };
+
+  // ── Simulation-mode gate: shown when blockchain env vars are missing ──────
+  if (!blockchainReady) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          {/* Header */}
+          <div className="border-b border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900">Publish on Blockchain</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Passport: <span className="font-mono">{passport.passportId}</span>
+            </p>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            {step !== 'success' && step !== 'submitting' && (
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
+                  <FlaskConical className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Simulation Mode</p>
+                    <p className="text-xs text-amber-800 mt-1">
+                      No contract address is configured (<code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_CONTRACT_ADDRESS</code> is empty).
+                      The passport will be published with a simulated transaction hash for demo purposes.
+                    </p>
+                    <p className="text-xs text-amber-700 mt-2">
+                      To enable live on-chain publishing, add your contract address and RPC URL to{' '}
+                      <code className="bg-amber-100 px-1 rounded">apps/frontend/.env.local</code> and restart the dev server.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4 space-y-1 text-xs text-gray-700">
+                  <p className="font-medium text-gray-900 text-sm mb-2">Publication Details</p>
+                  <p>Passport ID: <span className="font-mono">{passport.passportId}</span></p>
+                  <p>Status: {passport.status} → PUBLISHED</p>
+                  <p>Mode: <span className="italic">Simulated blockchain</span></p>
+                </div>
+
+                <button
+                  id="btn-simulate-publish"
+                  onClick={handleSimulatedPublish}
+                  disabled={isProcessing}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
+                >
+                  <FlaskConical className="w-4 h-4" />
+                  {isProcessing ? 'Publishing...' : 'Publish (Simulation)'}
+                </button>
+              </>
+            )}
+
+            {step === 'submitting' && (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="animate-spin">
+                  <Loader className="w-8 h-8 text-amber-500" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-gray-900">Publishing Passport</p>
+                  <p className="text-sm text-gray-600 mt-1">Simulating blockchain transaction…</p>
+                  {txHash && (
+                    <p className="text-xs text-gray-500 font-mono mt-2">{txHash.substring(0, 18)}...</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {step === 'success' && (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <CheckCircle className="w-12 h-12 text-green-600" />
+                <div className="text-center">
+                  <p className="font-medium text-gray-900">Published Successfully</p>
+                  <p className="text-sm text-gray-600 mt-1">Passport status updated to PUBLISHED</p>
+                  {txHash && (
+                    <p className="text-xs text-gray-500 font-mono mt-2 break-all">{txHash}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {step === 'error' && (
+              <>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-900">{error}</p>
+                </div>
+                <button
+                  onClick={() => { setStep('wallet'); setError(null); }}
+                  className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors"
+                >
+                  Try Again
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200 p-4">
+            {step !== 'success' && (
+              <button
+                onClick={onCancel}
+                disabled={isProcessing}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            )}
+            {step === 'success' && (
+              <button
+                onClick={onCancel}
+                className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isMetaMaskAvailable) {
     return (
@@ -234,7 +394,7 @@ export function PublishWithBlockchainDialog({
               </div>
               <button
                 onClick={() => {
-                  setStep('confirm');
+                  setStep(account ? 'confirm' : 'wallet');
                   setError(null);
                 }}
                 className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors"

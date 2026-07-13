@@ -16,22 +16,22 @@ When a battery passport is approved and ready for publication, admins can now pu
 
 ## Setup Instructions
 
-### 1. Environment Variables
-
 Add the following environment variables to your `.env.local` (frontend) and `.env` (backend):
 
 ```bash
-# Frontend (.env.local)
-NEXT_PUBLIC_RPC_URL=https://your-ethereum-rpc-endpoint
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xYourContractAddress
+# Frontend (.env.local) - REQUIRED
+NEXT_PUBLIC_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+NEXT_PUBLIC_CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890
 
-# Backend (.env)
-RPC_URL=https://your-ethereum-rpc-endpoint
-CONTRACT_ADDRESS=0xYourContractAddress
-ANCHOR_PRIVATE_KEY=0xYourPrivateKey  # For backend-initiated transactions (optional)
-ANCHOR_OWNER_ADDRESS=0xYourWalletAddress  # Default recipient for anchored passports
+# Backend (.env) - OPTIONAL (for server-side signing)
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890
+ANCHOR_PRIVATE_KEY=0xYourPrivateKey
+ANCHOR_OWNER_ADDRESS=0xYourWalletAddress
 STORAGE_MODE=local  # or 'ipfs' for IPFS storage
 ```
+
+> 📖 **Troubleshooting?** See [BLOCKCHAIN_CONFIG_TROUBLESHOOTING.md](./BLOCKCHAIN_CONFIG_TROUBLESHOOTING.md)
 
 ### 2. Install Dependencies
 
