@@ -18,6 +18,7 @@ import {
   BatteryPassport,
   PassportFilters,
   PaginatedPassports,
+  PublishWithBlockchainRequest,
 } from '@/lib/api/passports';
 
 // Query Keys
@@ -109,10 +110,14 @@ export function useRejectPassport(): UseMutationResult<BatteryPassport, Error, {
 }
 
 // Publish passport
-export function usePublishPassport(): UseMutationResult<BatteryPassport, Error, string> {
+export function usePublishPassport(): UseMutationResult<
+  BatteryPassport,
+  Error,
+  { id: string; blockchainData?: PublishWithBlockchainRequest }
+> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: publishPassport,
+    mutationFn: ({ id, blockchainData }) => publishPassport(id, blockchainData),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: passportKeys.detail(result.id) });
       queryClient.invalidateQueries({ queryKey: passportKeys.lists() });
