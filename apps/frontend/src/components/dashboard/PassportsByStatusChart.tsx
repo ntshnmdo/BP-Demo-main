@@ -1,147 +1,130 @@
 'use client';
 
 import {
-  PieChart,
-  Pie,
-  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { useStatusDistribution } from '@/lib/hooks/useDashboard';
+import { usePassports } from '@/lib/hooks/usePassports';
 
-const STATUS_COLORS: Record<string, string> = {
-  PUBLISHED: '#10b981',
-  APPROVED: '#34d399',
-  SUBMITTED: '#60a5fa',
-  DRAFT: '#64748b',
-  REJECTED: '#f87171',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  PUBLISHED: 'Published',
-  APPROVED: 'Approved',
-  SUBMITTED: 'Submitted',
-  DRAFT: 'Draft',
-  REJECTED: 'Rejected',
-};
+function calculateGHGAvoided(p: any): number {
+  // Baseline carbon footprint of standard manufacturing = 95 kg CO2e / kWh
+  const baseline = 95;
+  const actualFootprint = p.carbonFootprintKgCo2eKwh ?? p.carbonFootprint ?? 70;
+  const capacity = p.capacityKwh ?? p.capacity ?? 60;
+  const avoidedKg = Math.max(0, (baseline - actualFootprint) * capacity);
+  return avoidedKg / 1000; // in tonnes CO2e
+}
 
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: Array<{
-    name: string;
-    value: number;
-    payload: { status: string; count: number; percentage: number };
-  }>;
+  payload?: any[];
 }
 
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
-  const item = payload[0].payload;
+  const data = payload[0].payload;
   return (
-    <div className="glass-card rounded-lg px-3 py-2 text-xs">
-      <p className="font-semibold text-slate-200">{STATUS_LABELS[item.status] || item.status}</p>
-      <p className="text-slate-400">
-        {item.count} passport{item.count !== 1 ? 's' : ''} ({item.percentage}%)
+    <div className="glass-card rounded-lg px-3 py-2 text-xs border border-emerald-500/20 bg-slate-900/90 shadow-xl">
+      <p className="font-semibold text-slate-200">{data.fullModelName}</p>
+      <p className="text-emerald-400 font-medium mt-1">
+        {data.avoided.toFixed(2)} t CO2e avoided
       </p>
     </div>
   );
 }
 
-interface CustomLegendProps {
-  payload?: Array<{ value: string; color: string }>;
-}
-
-function CustomLegend({ payload }: CustomLegendProps) {
-  if (!payload) return null;
-  return (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
-      {payload.map((entry) => (
-        <div key={entry.value} className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-slate-400 text-xs">{STATUS_LABELS[entry.value] || entry.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CenterLabel({ total }: { total: number }) {
-  return (
-    <g>
-      <text
-        x="50%"
-        y="45%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="fill-slate-100 text-3xl font-bold"
-        style={{ fontSize: '28px', fontWeight: 700, fill: '#f1f5f9' }}
-      >
-        {total}
-      </text>
-      <text
-        x="50%"
-        y="60%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        style={{ fontSize: '12px', fill: '#64748b' }}
-      >
-        Total
-      </text>
-    </g>
-  );
-}
-
 export function PassportsByStatusChart() {
-  const { data, isLoading } = useStatusDistribution();
+  const { data: response, isLoading } = usePassports({ limit: 100 });
+  const passports = response?.data || [];
 
-  const total = data?.reduce((sum, d) => sum + d.count, 0) ?? 0;
-  const chartData =
-    data?.map((d) => ({
-      ...d,
-      name: d.status,
-      color: STATUS_COLORS[d.status] ?? '#64748b',
-    })) ?? [];
+  // Group emissions avoided by model
+  const modelAvoided: Record<string, number> = {};
+  passports.forEach((p) => {
+    const avoided = calculateGHGAvoided(p);
+    const model = p.model || 'Unknown Model';
+    modelAvoided[model] = (modelAvoided[model] || 0) + avoided;
+  });
+
+  const chartData = Object.entries(modelAvoided)
+    .map(([model, avoided]) => ({
+      model: model.length > 15 ? `${model.slice(0, 13)}...` : model,
+      fullModelName: model,
+      avoided: Number(avoided.toFixed(2)),
+    }))
+    .sort((a, b) => b.avoided - a.avoided)
+    .slice(0, 5); // Show top 5 models
+
+  const grandTotal = Object.values(modelAvoided).reduce((sum, val) => sum + val, 0);
 
   if (isLoading) {
     return (
-      <div className="glass-card rounded-xl p-5">
-        <div className="skeleton h-4 w-40 rounded mb-6" />
-        <div className="skeleton w-48 h-48 rounded-full mx-auto" />
+      <div className="glass-card rounded-xl p-5 border border-slate-800/40 bg-slate-950/40">
+        <div className="skeleton h-4 w-40 rounded mb-6 animate-pulse bg-slate-800" />
+        <div className="skeleton w-full h-[240px] rounded mx-auto animate-pulse bg-slate-800" />
       </div>
     );
   }
 
   return (
-    <div className="glass-card rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-slate-200 font-semibold">Passports by Status</h3>
-        <span className="text-slate-500 text-xs bg-slate-800/50 px-2.5 py-1 rounded-full">
-          {total} total
+    <div className="glass-card rounded-xl p-5 border border-slate-800/40 bg-slate-950/40 backdrop-blur-md">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-slate-200 font-semibold text-sm">GHG Emissions Avoided</h3>
+          <p className="text-slate-500 text-xs mt-0.5">CO₂e saved vs baseline (95 kg/kWh)</p>
+        </div>
+        <span className="text-emerald-400 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full shrink-0">
+          {grandTotal.toFixed(1)} t CO₂e total
         </span>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie
+
+      {chartData.length === 0 ? (
+        <div className="h-[240px] flex items-center justify-center text-slate-500 text-xs">
+          No emission savings recorded
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart
             data={chartData}
-            cx="50%"
-            cy="45%"
-            innerRadius={65}
-            outerRadius={100}
-            paddingAngle={3}
-            dataKey="count"
-            nameKey="status"
-            strokeWidth={0}
+            layout="vertical"
+            margin={{ top: 5, right: 15, left: -20, bottom: 5 }}
           >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-            <CenterLabel total={total} />
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend content={<CustomLegend />} />
-        </PieChart>
-      </ResponsiveContainer>
+            <defs>
+              <linearGradient id="colorAvoided" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#059669" stopOpacity={0.6} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.9} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              type="number"
+              stroke="#64748b"
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              unit=" t"
+            />
+            <YAxis
+              dataKey="model"
+              type="category"
+              stroke="#64748b"
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              width={80}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+            <Bar
+              dataKey="avoided"
+              fill="url(#colorAvoided)"
+              radius={[0, 4, 4, 0]}
+              barSize={16}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

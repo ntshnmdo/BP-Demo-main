@@ -18,7 +18,7 @@ export class PassportsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     @Inject(BLOCKCHAIN_SERVICE) private readonly blockchainService: IBlockchainService,
-  ) {}
+  ) { }
 
   private generatePassportId(): string {
     const year = new Date().getFullYear();
@@ -76,6 +76,8 @@ export class PassportsService {
           chemistry: true,
           productionDate: true,
           carbonFootprint: true,
+          ghgEmissions: true,
+          capacity: true,
           circularityScore: true,
           countryOfOrigin: true,
           createdAt: true,
@@ -160,7 +162,7 @@ export class PassportsService {
         warrantyKm: dto.warrantyKm,
         stateOfHealth: dto.stateOfHealth !== undefined ? dto.stateOfHealth : 100,
         stateOfCharge: dto.stateOfCharge !== undefined ? dto.stateOfCharge : 100,
-        qrCode: `https://passport.batterypassport.eu/scan/${passportId}`,
+        qrCode: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/public-passport/${passportId}`,
         createdById: userId,
         status: 'DRAFT',
       },
@@ -367,19 +369,21 @@ export class PassportsService {
       updateData.blockchainTx = blockchainData.blockchainTxHash;
     }
 
-    if (blockchainData?.walletAddress) {
-      updateData.publishedByWallet = blockchainData.walletAddress;
-    }
+    // Note: walletAddress is recorded in the audit log below (no DB column for it)
 
     const updated = await this.prisma.batteryPassport.update({
       where: { id: passport.id },
       data: updateData,
     });
 
-    // Create audit log with blockchain info
-    const auditDetails = blockchainData?.blockchainTxHash
-      ? `Passport published to public registry with blockchain transaction: ${blockchainData.blockchainTxHash}`
-      : `Passport published to public registry`;
+    // Create audit log with blockchain info (wallet address stored here since no DB column)
+    let auditDetails = `Passport published to public registry`;
+    if (blockchainData?.blockchainTxHash) {
+      auditDetails = `Passport published to public registry with blockchain transaction: ${blockchainData.blockchainTxHash}`;
+      if (blockchainData?.walletAddress) {
+        auditDetails += ` | Wallet: ${blockchainData.walletAddress}`;
+      }
+    }
 
     await this.auditService.createLog(
       passport.id,

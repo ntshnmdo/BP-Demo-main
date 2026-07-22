@@ -30,10 +30,10 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/battery_passport
-      JWT_SECRET: battery-passport-super-secret-jwt-key-change-in-production
+      JWT_SECRET: ${JWT_SECRET:-battery-passport-super-secret-jwt-key-change-in-production}
       JWT_EXPIRES_IN: 7d
       BACKEND_PORT: 3001
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       BLOCKCHAIN_PROVIDER: mock
       NODE_ENV: production
     volumes:
@@ -49,7 +49,8 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+      BACKEND_URL: http://backend:3001
 
 volumes:
   pgdata:
