@@ -17,7 +17,11 @@ def load_env():
 
 def update_env_contract_address(address: str):
     """Updates the CONTRACT_ADDRESS in config files."""
-    paths = [".env", "../.env", "backend/.env", "frontend/.env.local", "../frontend/.env.local"]
+    paths = [
+        ".env", "../.env", "backend/.env", "frontend/.env.local", "../frontend/.env.local",
+        "apps/frontend/.env.local", "../apps/frontend/.env.local", "../../apps/frontend/.env.local", "../../../apps/frontend/.env.local",
+        "../../.env"
+    ]
     for path in paths:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -25,11 +29,14 @@ def update_env_contract_address(address: str):
             
             with open(path, "w", encoding="utf-8") as f:
                 for line in lines:
-                    if line.strip().startswith("CONTRACT_ADDRESS="):
+                    strip_line = line.strip()
+                    if strip_line.startswith("CONTRACT_ADDRESS="):
                         f.write(f"CONTRACT_ADDRESS={address}\n")
+                    elif strip_line.startswith("NEXT_PUBLIC_CONTRACT_ADDRESS="):
+                        f.write(f"NEXT_PUBLIC_CONTRACT_ADDRESS={address}\n")
                     else:
                         f.write(line)
-            print(f"Updated {path} with CONTRACT_ADDRESS={address}")
+            print(f"Updated {path} with CONTRACT_ADDRESS and NEXT_PUBLIC_CONTRACT_ADDRESS = {address}")
 
 def main():
     load_env()

@@ -16,6 +16,7 @@ export class BlockchainTransactionService {
   private contractAddress: string;
   private contractABI: string[] = [
     "function anchorPassport(address to, string adi, string dbHash, string cid) external returns (uint256)",
+    "function isAdiAnchored(string adi) external view returns (bool)",
     "event PassportAnchored(uint256 indexed tokenId, address indexed to, string adi, string dbSha256Hash, string ipfsCid, uint256 timestamp)"
   ];
 
@@ -44,7 +45,53 @@ export class BlockchainTransactionService {
     try {
       // Create provider from user's MetaMask connection
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      
+      // Check and switch network if needed
+      const targetChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 99999;
+      const network = await provider.getNetwork();
+      const currentChainId = Number(network.chainId);
+
+      if (currentChainId !== targetChainId) {
+        console.log(`[BLOCKCHAIN] Current chain ID ${currentChainId} does not match target ${targetChainId}. Prompting network switch...`);
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+          });
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            console.log('[BLOCKCHAIN] Chain not added to MetaMask. Requesting addition...');
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [
+                  {
+                    chainId: `0x${targetChainId.toString(16)}`,
+                    chainName: targetChainId === 99999 ? 'ADI Foundation Testnet' : 'Local Blockchain',
+                    rpcUrls: [process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.ab.testnet.adifoundation.ai'],
+                    nativeCurrency: {
+                      name: 'ADI',
+                      symbol: 'ADI',
+                      decimals: 18,
+                    },
+                    blockExplorerUrls: ['https://explorer.ab.testnet.adifoundation.ai/'],
+                  },
+                ],
+              });
+            } catch (addError: any) {
+              console.error('[BLOCKCHAIN] Failed to add Ethereum chain:', addError);
+              throw new Error(`Please add network with Chain ID ${targetChainId} to MetaMask.`);
+            }
+          } else {
+            console.error('[BLOCKCHAIN] Failed to switch Ethereum chain:', switchError);
+            throw new Error(`Please switch MetaMask to network with Chain ID ${targetChainId}.`);
+          }
+        }
+      }
+
+      // Re-initialize provider and signer after switch
+      const updatedProvider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await updatedProvider.getSigner();
       
       // Create contract instance with user's signer
       const contract = new ethers.Contract(
@@ -52,6 +99,29 @@ export class BlockchainTransactionService {
         this.contractABI,
         signer
       );
+
+      // Check if already anchored on-chain to handle recovery/resubmissions
+      const isAlreadyAnchored = await contract.isAdiAnchored(passportId);
+      if (isAlreadyAnchored) {
+        console.log(`[BLOCKCHAIN] Passport ${passportId} is already anchored on-chain. Finding event logs...`);
+        try {
+          const filter = contract.filters.PassportAnchored(null, null, passportId);
+          const events = await contract.queryFilter(filter, 0, 'latest');
+          if (events && events.length > 0) {
+            const event = events[events.length - 1] as any;
+            console.log(`[BLOCKCHAIN] Found existing anchoring transaction: ${event.transactionHash}`);
+            let tokenId: string | undefined;
+            if (event.args && event.args.length > 0) {
+              tokenId = event.args[0].toString();
+            }
+            return { txHash: event.transactionHash, tokenId };
+          }
+        } catch (eventError) {
+          console.warn('[BLOCKCHAIN] Failed to query event history:', eventError);
+        }
+        // Fallback placeholder if event querying fails
+        return { txHash: '0xAlreadyAnchored' };
+      }
 
       // Prepare CID pointer
       const cid = storageMode === 'ipfs' ? `ipfs://${dataHash}` : `local://${dataHash}`;

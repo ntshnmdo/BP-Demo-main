@@ -39,13 +39,54 @@ export function useMetaMask() {
         throw new Error('No accounts found. Please enable MetaMask access.');
       }
 
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      // Check and switch network if needed
+      const targetChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 99999;
       const network = await provider.getNetwork();
+      const currentChainId = Number(network.chainId);
+
+      if (currentChainId !== targetChainId) {
+        try {
+          await window.ethereum!.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+          });
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            try {
+              await window.ethereum!.request({
+                method: 'wallet_addEthereumChain',
+                params: [
+                  {
+                    chainId: `0x${targetChainId.toString(16)}`,
+                    chainName: targetChainId === 99999 ? 'ADI Foundation Testnet' : 'Local Blockchain',
+                    rpcUrls: [process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.ab.testnet.adifoundation.ai'],
+                    nativeCurrency: {
+                      name: 'ADI',
+                      symbol: 'ADI',
+                      decimals: 18,
+                    },
+                    blockExplorerUrls: ['https://explorer.ab.testnet.adifoundation.ai/'],
+                  },
+                ],
+              });
+            } catch (addError: any) {
+              throw new Error(`Failed to add network to MetaMask: ${addError.message || addError}`);
+            }
+          } else {
+            throw new Error(`Failed to switch network in MetaMask: ${switchError.message || switchError}`);
+          }
+        }
+      }
+
+      // Re-initialize provider and network in case chain changed
+      const updatedProvider = new ethers.BrowserProvider(window.ethereum!);
+      const signer = await updatedProvider.getSigner();
+      const address = await signer.getAddress();
+      const updatedNetwork = await updatedProvider.getNetwork();
 
       const accountInfo: MetaMaskAccount = {
         address,
-        chainId: Number(network.chainId),
+        chainId: Number(updatedNetwork.chainId),
         isConnected: true,
       };
 
