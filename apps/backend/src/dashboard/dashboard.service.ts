@@ -247,4 +247,38 @@ export class DashboardService {
       },
     };
   }
+
+  async getGhgEmissions(userId: string, role: string) {
+    const isAdminLike = ['ADMIN', 'SUSTAINABILITY_TEAM', 'TESTING_LABORATORY'].includes(role);
+    const where: any = isAdminLike ? {} : { createdById: userId };
+
+    const passports = await this.prisma.batteryPassport.findMany({
+      where: {
+        ...where,
+        OR: [
+          { carbonFootprint: { not: null } },
+          { ghgEmissions: { not: null } },
+        ],
+      },
+      select: {
+        passportId: true,
+        model: true,
+        carbonFootprint: true,
+        ghgEmissions: true,
+        manufacturingSiteEmissions: true,
+        status: true,
+      },
+      orderBy: { carbonFootprint: 'desc' },
+      take: 8,
+    });
+
+    return passports.map((p) => ({
+      name: p.model || p.passportId,
+      passportId: p.passportId,
+      status: p.status,
+      carbonFootprint: p.carbonFootprint ?? 0,
+      ghgEmissions: p.ghgEmissions ?? 0,
+      manufacturingSiteEmissions: p.manufacturingSiteEmissions ?? 0,
+    }));
+  }
 }

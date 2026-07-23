@@ -10,7 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { StatsCard } from '@/components/dashboard/StatsCard';
-import { PassportsByStatusChart } from '@/components/dashboard/PassportsByStatusChart';
+import { GHGEmissionsChart } from '@/components/dashboard/GHGEmissionsChart';
 import { CompletionTrendChart } from '@/components/dashboard/CompletionTrendChart';
 import { RecentPassportsTable } from '@/components/dashboard/RecentPassportsTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
@@ -101,7 +101,7 @@ export default function DashboardPage() {
           <CompletionTrendChart />
         </div>
         <div>
-          <PassportsByStatusChart />
+          <GHGEmissionsChart />
         </div>
       </div>
 

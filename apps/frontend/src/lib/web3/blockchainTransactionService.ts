@@ -42,60 +42,79 @@ export class BlockchainTransactionService {
     }
 
     try {
-      // Create provider from user's MetaMask connection
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      // Create contract instance with user's signer
-      const contract = new ethers.Contract(
-        this.contractAddress,
-        this.contractABI,
-        signer
-      );
-
-      // Prepare CID pointer
+      // Encode calldata using ethers Interface (ABI encoding only — no ENS involved)
+      const iface = new ethers.Interface(this.contractABI);
       const cid = storageMode === 'ipfs' ? `ipfs://${dataHash}` : `local://${dataHash}`;
 
-      console.log(`[BLOCKCHAIN] Submitting anchorPassport transaction from ${userAddress}...`);
-      
-      // Submit transaction
-      const tx = await contract.anchorPassport(userAddress, passportId, dataHash, cid);
-      
-      console.log(`[BLOCKCHAIN] Transaction submitted: ${tx.hash}. Waiting for confirmation...`);
-      
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
+      // Ensure address is EIP-55 checksummed
+      const checksumAddress = ethers.getAddress(userAddress);
 
-      if (!receipt || receipt.status !== 1) {
+      const calldata = iface.encodeFunctionData('anchorPassport', [
+        checksumAddress,
+        passportId,
+        dataHash,
+        cid,
+      ]);
+
+      console.log(`[BLOCKCHAIN] Submitting anchorPassport via eth_sendTransaction from ${checksumAddress}...`);
+
+      // Send transaction directly through MetaMask — completely bypasses ethers ENS resolution
+      const txHash: string = await (window.ethereum as any).request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: checksumAddress,
+          to: this.contractAddress,
+          data: calldata,
+        }],
+      });
+
+      console.log(`[BLOCKCHAIN] Transaction submitted: ${txHash}. Waiting for confirmation...`);
+
+      // Poll for receipt using raw eth_getTransactionReceipt
+      const receipt = await this._waitForReceipt(txHash);
+
+      if (!receipt || receipt.status !== '0x1') {
         throw new Error('Blockchain transaction reverted.');
       }
 
-      console.log(`[BLOCKCHAIN] Transaction confirmed: ${tx.hash}`);
+      console.log(`[BLOCKCHAIN] Transaction confirmed: ${txHash}`);
 
       // Parse event logs for token ID
       let tokenId: string | undefined;
       try {
-        for (const log of receipt.logs) {
-          try {
-            const parsedLog = contract.interface.parseLog(log as any);
-            if (parsedLog && parsedLog.name === 'PassportAnchored') {
-              tokenId = parsedLog.args[0].toString();
+        const eventTopic = iface.getEvent('PassportAnchored')?.topicHash;
+        for (const log of receipt.logs ?? []) {
+          if (log.topics?.[0] === eventTopic) {
+            const parsed = iface.parseLog(log);
+            if (parsed) {
+              tokenId = parsed.args[0].toString();
               break;
             }
-          } catch (e) {
-            // ignore logs that don't match
           }
         }
       } catch (e) {
         console.warn('Could not parse event logs:', e);
       }
 
-      return { txHash: tx.hash, tokenId };
+      return { txHash, tokenId };
     } catch (error: any) {
       const errorMessage = error?.reason || error?.message || 'Failed to submit transaction';
       console.error('[BLOCKCHAIN ERROR]', errorMessage);
       throw new Error(`Blockchain transaction failed: ${errorMessage}`);
     }
+  }
+
+  /** Poll eth_getTransactionReceipt until mined (max 60 attempts × 3s = 3 min) */
+  private async _waitForReceipt(txHash: string, maxAttempts = 60): Promise<any> {
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const receipt = await (window.ethereum as any).request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+      });
+      if (receipt) return receipt;
+    }
+    throw new Error('Transaction was not mined within the timeout period.');
   }
 
   /**
@@ -108,7 +127,8 @@ export class BlockchainTransactionService {
     }
 
     try {
-      const provider = new ethers.JsonRpcProvider(this.rpcUrl);
+      // Pass staticNetwork to prevent ENS resolution on custom/local networks
+      const provider = new ethers.JsonRpcProvider(this.rpcUrl, undefined, { staticNetwork: true });
       const contract = new ethers.Contract(
         this.contractAddress,
         ["function isAdiAnchored(string adi) external view returns (bool)"],
@@ -133,7 +153,10 @@ export class BlockchainTransactionService {
     }
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const rawNetwork = await (window.ethereum as any).request({ method: 'eth_chainId' });
+      const chainId = parseInt(rawNetwork, 16);
+      const network = new ethers.Network('unknown', chainId);
+      const provider = new ethers.BrowserProvider(window.ethereum, network);
       const signer = await provider.getSigner();
       return await signer.getAddress();
     } catch (error) {
@@ -151,9 +174,8 @@ export class BlockchainTransactionService {
     }
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      return Number(network.chainId);
+      const rawChainId = await (window.ethereum as any).request({ method: 'eth_chainId' });
+      return parseInt(rawChainId, 16);
     } catch (error) {
       console.error('Failed to get network ID:', error);
       return null;

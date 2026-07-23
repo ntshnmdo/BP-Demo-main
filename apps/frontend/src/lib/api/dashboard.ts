@@ -57,6 +57,15 @@ export interface ComplianceOverview {
   complianceScore: number;
 }
 
+export interface GhgDataPoint {
+  name: string;
+  passportId: string;
+  status: string;
+  carbonFootprint: number;
+  ghgEmissions: number;
+  manufacturingSiteEmissions: number;
+}
+
 const mockStats: DashboardStats = {
   total: 5,
   published: 1,
@@ -279,5 +288,23 @@ export async function getComplianceOverview(): Promise<ComplianceOverview> {
     };
   } catch {
     return mockCompliance;
+  }
+}
+
+const mockGhgData: GhgDataPoint[] = [
+  { name: 'Voltaics Pro 100', passportId: 'BAT-2026-001', status: 'PUBLISHED', carbonFootprint: 85.4, ghgEmissions: 72.3, manufacturingSiteEmissions: 13.1 },
+  { name: 'Industrial ESS-500', passportId: 'BAT-2026-002', status: 'SUBMITTED', carbonFootprint: 62.1, ghgEmissions: 54.8, manufacturingSiteEmissions: 7.3 },
+  { name: 'EV Pack Pro 200', passportId: 'BAT-2026-003', status: 'APPROVED', carbonFootprint: 91.2, ghgEmissions: 78.6, manufacturingSiteEmissions: 12.6 },
+  { name: 'LiSo Cell Pack', passportId: 'BAT-2026-004', status: 'DRAFT', carbonFootprint: 58.7, ghgEmissions: 51.2, manufacturingSiteEmissions: 7.5 },
+  { name: 'Marine MR-50', passportId: 'BAT-2026-005', status: 'REJECTED', carbonFootprint: 105.3, ghgEmissions: 92.1, manufacturingSiteEmissions: 13.2 },
+  { name: 'EcoCell Lite', passportId: 'BAT-2026-006', status: 'PUBLISHED', carbonFootprint: 45.2, ghgEmissions: 38.7, manufacturingSiteEmissions: 6.5 },
+];
+
+export async function getGhgEmissions(): Promise<GhgDataPoint[]> {
+  try {
+    const { data } = await apiClient.get<GhgDataPoint[]>('/api/dashboard/ghg-emissions');
+    return data;
+  } catch {
+    return mockGhgData;
   }
 }

@@ -30,4 +30,9 @@ export class DashboardController {
   getComplianceOverview() {
     return this.dashboardService.getComplianceOverview();
   }
+
+  @Get('ghg-emissions')
+  getGhgEmissions(@CurrentUser() user: any) {
+    return this.dashboardService.getGhgEmissions(user.id, user.role);
+  }
 }

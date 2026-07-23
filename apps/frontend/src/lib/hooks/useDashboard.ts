@@ -6,12 +6,14 @@ import {
   getRecentActivity,
   getUpcomingTasks,
   getComplianceOverview,
+  getGhgEmissions,
   DashboardStats,
   TrendDataPoint,
   StatusDistribution,
   ActivityItem,
   UpcomingTask,
   ComplianceOverview,
+  GhgDataPoint,
 } from '@/lib/api/dashboard';
 
 export const dashboardKeys = {
@@ -22,6 +24,7 @@ export const dashboardKeys = {
   activity: () => [...dashboardKeys.all, 'activity'] as const,
   tasks: () => [...dashboardKeys.all, 'tasks'] as const,
   compliance: () => [...dashboardKeys.all, 'compliance'] as const,
+  ghg: () => [...dashboardKeys.all, 'ghg'] as const,
 };
 
 export function useDashboardStats() {
@@ -70,6 +73,14 @@ export function useComplianceOverview() {
   return useQuery<ComplianceOverview>({
     queryKey: dashboardKeys.compliance(),
     queryFn: getComplianceOverview,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useGhgEmissions() {
+  return useQuery<GhgDataPoint[]>({
+    queryKey: dashboardKeys.ghg(),
+    queryFn: getGhgEmissions,
     staleTime: 1000 * 60 * 5,
   });
 }

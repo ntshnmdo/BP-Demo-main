@@ -367,10 +367,6 @@ export class PassportsService {
       updateData.blockchainTx = blockchainData.blockchainTxHash;
     }
 
-    if (blockchainData?.walletAddress) {
-      updateData.publishedByWallet = blockchainData.walletAddress;
-    }
-
     const updated = await this.prisma.batteryPassport.update({
       where: { id: passport.id },
       data: updateData,
@@ -386,6 +382,7 @@ export class PassportsService {
       'PUBLISHED',
       adminId,
       auditDetails,
+      blockchainData ? { walletAddress: blockchainData.walletAddress, blockchainTxHash: blockchainData.blockchainTxHash } : undefined,
     );
 
     return updated;
